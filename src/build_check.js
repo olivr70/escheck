@@ -51,7 +51,6 @@ var fs         = require('fs');
 var path         = require('path');
 var chalk      = require('chalk');
 var UglifyJS = require('uglify-js');
-var highlight = require('console-highlight');
 
 var babel = require('babel-core');
 
