@@ -1,0 +1,33 @@
+{
+  "name": "escheck",
+  "version": "0.0.1",
+  "description": "a module to check your EcmaScript runtime",
+  "main": "index.js",
+  "scripts": {
+    "test": "test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/olivr70/escheck.git"
+  },
+  "keywords": [
+    "es5",
+    "es6",
+    "es7",
+    "ecmascript",
+    "runtime"
+  ],
+  "author": "olivr70",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/olivr70/escheck/issues"
+  },
+  "homepage": "https://github.com/olivr70/escheck#readme",
+  "dependencies": {
+    "compat-table": "github:kangax/compat-table#gh-pages"
+  },
+  "devDependencies": {
+    "chai": "^3.4.1",
+    "mocha": "^2.3.4"
+  }
+}
