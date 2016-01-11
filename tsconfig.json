@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+      "target": "es6",
+      "module": "commonjs",
+      "sourceMap": true,
+      "outDir": "./build",
+      "rootDir": "./src",
+      "noLib": true
+  },
+  "exclude": [
+      "node_modules",
+      "typings",
+      "wwwroot",
+      ".vscode"
+  ],
+  "files":[
+    "src/app/rendezvous.ts"
+  ]
+}
