@@ -1,6 +1,7 @@
 node_modules/*
 typings/*
 build/*
+out/*
 es*/compilers/*
 .DS_Store
 .ruby-version

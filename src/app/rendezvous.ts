@@ -1,4 +1,11 @@
-
+/** A study to implement async Javascript utilities
+ * The main objective was to understand JS asynchronous code
+ * 
+ * The only addition to async is support for timeouts
+ * 
+ * This is a very small subset of async (https://github.com/caolan/async), which
+ * 
+ */
 
 /// <reference path="../../typings/tsd.d.ts" />
 
@@ -10,6 +17,10 @@ interface Callback {
 
 interface AsyncFunc {
   (cb:Callback):void;
+}
+
+function log(...args:any[]):void {
+  // console.log.apply(null, args);
 }
 
 export function make(asyncCalls:AsyncFunc[], cb:Callback) {
@@ -35,6 +46,11 @@ export function parallel(asyncCalls:AsyncFunc[], timeoutInMs:number, cb:Callback
 
 /** makes all async calls in sequence, and invoked the callback with an
  * array of all results
+ * @example
+ * // to call the same functions several times with different arguments, you can 
+ * // use Array.map and curry
+ * var curriedGet = R.curry(function(url, cb) { })
+ * var asyncCalls = ["http://apple.com", "http://firefox.com"].map(curriedGet)
  */
 export function sequence(asyncCalls:AsyncFunc[], timeoutInMs:number, cb:Callback) {
   return make(asyncCalls, cb).workers(1).continueOnError(true).timeout(timeoutInMs).run();
@@ -58,8 +74,8 @@ export class Countdown {
   // state
   _nextToRun: number;
   _pending: number;
-  _timeoutId: number;
-  _timeouts: number [];
+    _timeoutId : any;
+  _timeouts: any [];
   // result
   _results: any [];
   _error:Error = null;
@@ -91,13 +107,13 @@ export class Countdown {
   
   runNext() { 
     if (this._nextToRun >= this.asyncCalls.length) {
-      console.log("!! Tried to run an extra task");
+      log("!! Tried to run an extra task");
       return false;
     }
     var me = this;
     var index = this._nextToRun++;
     var asyncCall = this.asyncCalls[index];
-    console.log("#", index, "scheduled - ", asyncCall );
+    log("#", index, "scheduled - ", asyncCall );
     me._timeouts[index] = setTimeout(function () {
       asyncCall(me.completionCb(index))
     }, 0);
@@ -105,7 +121,7 @@ export class Countdown {
   }
   
   run() {
-    console.log("run");
+    log("run");
     // schedule all calls
     var me = this;
     for (var i = 0; i <this._workerCount; ++i) { this.runNext(); }
@@ -117,10 +133,10 @@ export class Countdown {
     // })
     // schedule timeout
     if (this._timeoutInMs > 0) {
-      console.log("will timeout in ", this._timeoutInMs, "ms");
-      this._timeoutId = setTimeout( function() { console.log("timed out"); me.onTimeout() }, this._timeoutInMs);
+      log("will timeout in ", this._timeoutInMs, "ms");
+      this._timeoutId = setTimeout( function() { log("timed out"); me.onTimeout() }, this._timeoutInMs);
     } else {
-      console.log("will not timeout");
+      log("will not timeout");
     }
   }
   
@@ -157,12 +173,12 @@ export class Countdown {
   completionCb(index) {
     var me = this;
     return function (result) {
-      console.log("#",index, " - Completed");
+      log("#",index, " - Completed");
       if (me._error != null) return;
       // we have not failed yet
       me._results[index] = result;
       if (result instanceof Error && !me._continueOnError) {
-        console.log("#",index, " - failed on first error ", result);
+        log("#",index, " - failed on first error ", result);
         me._error = result;
         me.cancel();
         if (me.cb) me.cb(result);
@@ -171,10 +187,10 @@ export class Countdown {
         me._pending--;
         if (me._pending === 0) {
           me.cancel();  // for an enventual pending timeout
-          console.log("#",index, " - Last callback ", me.cb)
+          log("#",index, " - Last callback ", me.cb)
           if (me.cb) me.cb(me._results);
         }
-        console.log("#",index, " - Still pending ", me._pending);
+        log("#",index, " - Still pending ", me._pending);
         me.runNext();
       }
     } 

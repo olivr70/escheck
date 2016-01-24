@@ -51,6 +51,7 @@ var fs         = require('fs');
 var path         = require('path');
 var chalk      = require('chalk');
 var UglifyJS = require('uglify-js');
+var async = require('async');
 
 var babel = require('babel-core');
 
@@ -58,10 +59,9 @@ var _ = require('lodash');
 
 var errAsyncTestNotCompleted = new Error("Asynchronous test has not completed");
 
-var dataInternal = require("./data-internal");
-var dataES5 = require("./data-es5");
-var dataES6 = require("./data-es6");
-var dataES7 = require("./data-es7");
+var dataES5 = require("../node_modules/compat-table/data-es5");
+var dataES6 = require("../node_modules/compat-table/data-es6");
+var dataES7 = require("../node_modules/compat-table/data-es7");
 var tests = {internal: dataInternal.tests, es5: dataES5.tests, es6 : dataES6.tests, es7: dataES7.tests };
 
 // ------------------- Utilities --------------------
@@ -936,65 +936,11 @@ function runAllFromFileAsync(file, cb) {
   }
 }
 
-/** an object which call a sinlge callback
- * with either
- * - the result of a group of async call
- * - the first error returned. If an error is retu
- * @param {array} asyncCalls - a set of single argument functions taking a c
- * @param {function} cb - the final callback to call
- * @param {boolean} [continueOnError=false] - if false, all pending calls are canceled
- *   and the result of those which have not completed will be ignored. Only the first Error
- *   is immediately returned
+/** runs multiple test files. In case of success, 
+ * cb is called with an array holding the report for each test file
  */
-function CountDown(asyncCalls, cb, continueOnError) {
-  this.pending = asyncCalls.length;
-  this.cb = cb;
-  this.error = null;
-  this.timeouts = [];
-  this.results = [];
-  this.continueOnError = (continueOnError == true);
-  // schedule all calls
-  var me = this;
-  asyncCalls.forEach(function(asyncCall, index) {
-    this.timeouts[index] = setTimeout(function () {
-      asyncCall(this.completionCb(index))
-    }, 0);
-  })
-}
-CountDown.prototype.completionCb = function (index) {
-  var me = this;
-  return function (result) { 
-    if (me.error != null) return;
-    // we have not failed yet
-    me.results[index] = result;
-    if (result instanceof Error && !me.continueOnError) {
-      me.error = result;
-      me.cancel();
-      if (me.cb) me.cb(result);
-    } else {
-      me.timeouts[index] = null;
-      me.pending--;
-      if (me.pending === 0) {
-        if (me.cb) me.cb(me.results);
-      }
-    }
-  }
-}
-CountDown.prototype.cancel = function () {
-  this.timeouts.forEach( function (t) { clearTimeout(t); });
-  this.timeouts = [];
-}
-CountDown.prototype.failure = function(err) {
-  this.failed = true;
-  if (typeof this.cb === "function") this.cb(err);
-}
-CountDown.prototype.completed = function(result) {
-  if (result instanceof Error) this.success(result) else this.failure(result);  
-}
-
-function runMultipleFromFileAsync(files, err, sucess) {
-  var countDown = new CountDown(files.length, err, success);
-  files.forEach
+function runMultipleFromFileAsync(files, cb) {
+  async.map(files, runAllFromFileAsync, cb);
 }
 
 
