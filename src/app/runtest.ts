@@ -112,7 +112,7 @@ r.runAllFromFileAsync(testFile, function (err, report) {
   if (argv.display) {
     var d = require("./report");
     console.log("Report");
-    d.displayReport({indent:true}, report);
+    d.displayReport({indent:true, errors:false}, report);
     console.log("-----");
   } else {
     console.log(JSON.stringify(report,null,2));

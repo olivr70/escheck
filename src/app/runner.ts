@@ -190,7 +190,9 @@ export function runMultipleFilesAsync(files:string[], cb) {
 export function runAllFromFileAsync(file, cb) {
   try {
     var tests = require(file);
-    runAllAsync([tests], cb);
+    runAllAsync([tests], function (err, reports) {
+      if (err) cb(err); else cb(null, reports[0]);
+    });
   } catch (e) {
     console.log("unable to load file " + file);
     console.log(e);

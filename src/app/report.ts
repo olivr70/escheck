@@ -11,6 +11,13 @@ interface Summary {
   __success:number;
 }
 
+interface ReportOptions {
+  summary?:boolean;
+  fail?:boolean;
+  errors?:boolean;
+  src?:boolean;
+}
+
 function isSuccess(testResult) {
   return !(typeof testResult === "object") && testResult == true;
 }
@@ -65,7 +72,7 @@ function displayTest(options,result, path, tests) {
 }
 
 function displayReportResults(options, testResults, path, tests) {
-  //console.log(JSON.stringify(report,null," "));
+  //console.log(JSON.stringify(testResults,null," "));
   //console.log(report);
   _.forIn(testResults, function(test, name){ 
     // ignore private fields
@@ -98,8 +105,6 @@ export function displayReport(options, report) {
       });
     }
   }
-  console.log(options);
-  console.log(report);
   // display results
   displayReportResults(options, report.results, [], report.tests);
 }
