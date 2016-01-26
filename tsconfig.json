@@ -21,6 +21,7 @@
     "src/app/generator.ts",
     "src/app/runner.ts",
     "src/app/report.ts",
-    "src/app/main.ts"
+    "src/app/main.ts",
+    "src/app/runtest.ts"
   ]
 }
