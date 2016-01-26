@@ -98,6 +98,8 @@ export function displayReport(options, report) {
       });
     }
   }
+  console.log(options);
+  console.log(report);
   // display results
   displayReportResults(options, report.results, [], report.tests);
 }

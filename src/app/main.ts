@@ -118,6 +118,18 @@ if (profileFiles) {
       console.log("The following test files have been generated");
       _.forEach(pathes, function (item) {
         console.log("- ", item);
+      });
+      return new Promise( function (resolve, reject) {
+        console.log("Will run multiple files ", pathes.join(","))
+        r.runMultipleFilesAsync(pathes, function (err, reports) {
+          if (err) reject(err);
+          else resolve(reports);
+        })
+      })
+    })
+    .then( function (reports:{}[]) {
+      reports.forEach( function (r) {
+        d.displayReport(argv,r);
       })
     })
     .catch( function (e) {

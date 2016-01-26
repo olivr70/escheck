@@ -3,6 +3,7 @@
 
 import fs = require("fs");
 import path = require("path");
+import _ = require("lodash");
 
 import u = require("./utils");
 import c = require("./commons");
@@ -55,11 +56,17 @@ GenerationReport.prototype.addMinifyError = function addMinifyError(testPath, fu
     logMinifyError(testPath, func, e);
 };
 
+type PathStep = string | RegExp;
+type Path = PathStep[];
 
 /** tests if regex can match a part of pathItem
+ * Note : although step can be expressed as a string, it is
+ * inefficient to do so because the RegExp will be parsed on each call
  * Always returns true if regex is null, undefined or "*" */
-function matchStep(regex, pathItem) {
-  return regex == null || regex === "*" || regex.test(pathItem || "");
+function matchStep(step:PathStep, pathItem) {
+  if (step == null || step === "*") return true;
+  const regex = (typeof step === "string" ? new RegExp(step) : step);
+  return regex.test(pathItem || "");
 }
 
 /** returns true if testPath matches the pathFilter
@@ -67,7 +74,7 @@ function matchStep(regex, pathItem) {
  *   the corresponding filter
  * Otherwise, tries to match each step to the RegExp and returns true if one of them matches
  */
-function matchFilter(pathFilter /*RegExp|Regexp[] */, testPath /*:string[]*/)/*:boolean*/ {
+function matchFilter(pathFilter:RegExp|Path, testPath:string[]):boolean {
   if (_.isArray(pathFilter)) {
     for (var i = 0; i < pathFilter.length; ++i) {
       if (!matchStep(pathFilter[i], testPath[i])) {
@@ -83,7 +90,7 @@ function matchFilter(pathFilter /*RegExp|Regexp[] */, testPath /*:string[]*/)/*:
 
 /** returns true if testPath matches at least one of the supplied filters
  */
-function matchAny(filters, testPath) {
+function matchAny(filters:Path[], testPath) {
   if (filters != null) {
     for (var i =0; i < filters.length; ++i) {
       var curFilter = filters[i];
@@ -93,6 +100,16 @@ function matchAny(filters, testPath) {
     }
   }
   return false;
+}
+
+export interface Options {
+  includes?:Path[];
+  excludes?:Path[];
+  verbose?:boolean;
+  sync?:boolean;
+  async?:boolean;
+  compiler?:string;
+  compilerFunction?:c.Compiler;
 }
 
 /** returns true if 
@@ -312,10 +329,13 @@ function genByCategory(groupPath, tests, options, ioReport, tab) {
  * @param {boolean} options.minify - if true, will try to minify the test code
  * @return {object} a result object, .src holds the souce code, .report the generation report
  */
-function generateTestsSource(options):GenerationReport {
+function generateTestsSource(options:Options):GenerationReport {
   var report = new GenerationReport();
   options = options || {};
   var str = "";
+  if (options.compilerFunction && options.compilerFunction.polyfills && options.compilerFunction.polyfills.length != 0) {
+    str += "// polyfills:"+options.compilerFunction.polyfills.join(",") + "\n";
+  }
   str += "// ES6 compatibility checks\n";
   str += "// -------------------------\n";
   str += "/* Generated with the following options\n";
@@ -339,7 +359,7 @@ function generateTestsSource(options):GenerationReport {
   return report;
 }
 
-export function prepareOptions(ioOptions) {
+export function prepareOptions(ioOptions:Options) {
   // let's parse includes and excludes to simplify profile edition
   ioOptions.includes = unarr(arr(ioOptions.includes).map(c.strToFilter));
   ioOptions.excludes = unarr(arr(ioOptions.excludes).map(c.strToFilter));
@@ -358,7 +378,7 @@ export function prepareOptions(ioOptions) {
  * @return {Promise} - a Promise to an array of file pathes which will be fulfilled 
  *   when all files have been generated
  */
-export function writeMultiple(profilePathes, cliOpt) {
+export function writeMultiple(profilePathes:string[], cliOpt:Options) {
   var results = [];
   results = profilePathes.map( function (profilePath) {
     return u.readFileP(profilePath, 'utf8')
@@ -366,7 +386,7 @@ export function writeMultiple(profilePathes, cliOpt) {
         return {path: fileContent.path, data: JSON.parse(fileContent.data)}; })
 
       .then( function (jsonFile) {
-        var opts = _.defaults({}, jsonFile.data, cliOpt);
+        var opts:Options = _.defaults({}, jsonFile.data, cliOpt);
         prepareOptions(opts);
         var target = jsonFile.data.file ? jsonFile.data.file : path.parse(jsonFile.path).name + ".js";
         var src = generateTestsSource(opts).src;
@@ -374,6 +394,7 @@ export function writeMultiple(profilePathes, cliOpt) {
       })
       .catch( function (e) {
         console.log("Unable to load profile '",profilePath,"'", " : ", e);
+        throw e;
       });
   });
   return Promise.all(results);
@@ -389,7 +410,7 @@ function dumpGenerationResult(result) {
  * @param {string} filepath - the path of the generated test file
  * @param {object} options
  */
-function generateTests(filename, options):GenerationReport {
+function generateTests(filename, options:Options):GenerationReport {
   var report;
   try {
     report = generateTestsSource(options);
@@ -406,7 +427,7 @@ function generateTests(filename, options):GenerationReport {
   }
 }
 
-export function writeChecksJs(options, filename) {
+export function writeChecksJs(options:Options, filename) {
   if (!filename) filename = "./compatCheck.js"; 
   var res = generateTests(filename, options);
   dumpGenerationResult(res);

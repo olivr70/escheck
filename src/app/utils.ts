@@ -3,9 +3,19 @@
 
 
 import fs = require('fs');
+import path = require('path');
 import _ = require("lodash");
 
 // ------------------- Utilities --------------------
+
+/** returns a getter function for the specified property path
+ * as used by _.get
+  */
+export function getter<TResult>(
+      path:string|number|boolean|Array<string|number|boolean>
+      , defaultValue?:TResult): (obj:{})=>TResult {
+  return function (obj) { return _.get(obj, path, defaultValue); }
+} 
 /** makes it argument an array :
  * - identiry if x is already an array
  * - an empty array if x is null or undefined
@@ -129,13 +139,13 @@ export function readFileP(path, options):Promise<FileContent> {
 /** returns a Promise for the path of written file
  * @param {string} path - the loaded path
  * @param {string} data - the file content
- * @return {Promise} a Promise of the file path
+ * @return {Promise} a Promise of the absolute file path
  */
-export function writeFileP(path:string, data:string, options?):Promise<string> {
+export function writeFileP(filePath:string, data:string, options?):Promise<string> {
   return new Promise( function (resolve, reject) {
-    fs.writeFile(path, data, options, function (err) {
+    fs.writeFile(filePath, data, options, function (err) {
       if (err) return reject(err);
-      else resolve( path );
+      else resolve( path.resolve(filePath) );
     })
   })
 }

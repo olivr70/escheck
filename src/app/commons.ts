@@ -4,6 +4,7 @@
 
 import u = require('./utils');
 import chalk = require("chalk");
+import _ = require("lodash");
 
 import babel = require('babel-core');
 
@@ -21,7 +22,7 @@ export function strToFilter(str) {
                });
     return res.length === 1 ? res[0] : res;
   } catch (e) {
-    console.error(chalk.red("Invalid filter : "),str);
+    console.error(chalk.red("Invalid filter : "),str, " [",e,"]");
     process.exit(-1);
   }
 }
@@ -41,23 +42,67 @@ export function makeIdentifier(str) {
   return [ u.lowerize(initial) ].concat(parts.slice(1).map(u.capitalize)).join("");
 }
 
-export function selectCompiler(name) {
+export interface Compiler {
+  (src:string):string;
+  polyfills?:string[];
+}
+
+export function selectCompiler(name):Compiler {
   var compileFunc = undefined;
+  var polyfills = [];
   switch(name) {
     case "babel" : 
       compileFunc = function (src) { return babel.transform(src, {presets: ['es2015']} ).code; };
+      polyfills = [ "babel-polyfill" ];
       break;
     default: return undefined;
   }
-  return function (src) {
-    try { 
-      return compileFunc(src);
-    } catch (e) {
-      return new Error("Unable to compile");
-    }
+  var res:Compiler = function (src) {
+                try { 
+                  return compileFunc(src);
+                } catch (e) {
+                  return new Error("Unable to compile " + e.msg);
+                }
+  };
+  res.polyfills = polyfills;
+  return res;
+}
+
+/** returns true is the function body is asynchronous
+ * (i.e. makes a call to asyncTestPassed() or asyncTestFailed())
+ * 
+ */
+export function isAsyncTest(body:string):boolean {
+  return /asyncTest(Passed|Failed)\(\)/.test(body);
+}
+
+export interface TestFunction {
+  (globalObject:{}):any;
+}
+
+export interface AsyncTestFunction {
+  (global:{},asyncTestPassed: (res:any) => void):any;
+} 
+
+export interface RuntimeEnv {
+  node?: {
+    os?: { type?:string; release?:string; },
+    version?:string;
+    arch?:string;
+    platform?:string
+    v8?:string;
+  },
+  navigator?: {
+    appName?:string;
+    appVersion?:string;
+    platform?:string;
+    product?:string;
+    userAgent?:string;
   }
 }
 
-export function isAsyncTest(body:string) {
-  return /asyncTest(Passed|Failed)\(\)/.test(body);
+export interface TestReport {
+  env: RuntimeEnv;
+  asyncPending:number;
+  results:{};
 }
