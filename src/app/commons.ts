@@ -14,7 +14,7 @@ export var unableMsg = 'Unable to run this test';
 
 export function strToFilter(str) {
   try {
-    if (str == null || _.isArray(str)) return str;
+    if (str == null || _.isArray(str) || str instanceof RegExp) return str;
     var res = str.toString()
               .split('/')
               .map( function (x) {
@@ -33,7 +33,8 @@ export function isJsonFilePath(path/*:string*/) {
 
 /** transforms any string to a valid Javascript identifier
  */
-export function makeIdentifier(str) {
+export function makeIdentifier(str:string) {
+  if (str == null) return str;
   var parts = str.split(/\W+/).filter(Boolean);
     // filter(Boolean) removes empty parts
   var initial = parts[0];
@@ -54,6 +55,10 @@ export function selectCompiler(name):Compiler {
     case "babel" : 
       compileFunc = function (src) { return babel.transform(src, {presets: ['es2015']} ).code; };
       polyfills = [ "babel-polyfill" ];
+      break;
+    case "es6-shim" : 
+      compileFunc = String;
+      polyfills = [ "es6-shim" ];
       break;
     default: return undefined;
   }

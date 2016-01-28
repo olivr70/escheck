@@ -1,6 +1,7 @@
 
 
 /// <reference path="../../typings/tsd.d.ts" />
+"use strict";
 
 import fs = require("fs");
 import path = require("path");
@@ -15,7 +16,7 @@ function v(...msg:any[]) {
 
 function fail(code:number = -1, ...msg:string[]) {
   if (msg.length != 0) console.error.apply(null, msg);
-  require("process").exit(code);
+  process.exit(code);
 }
 
 function showHelp() {
@@ -37,9 +38,9 @@ v(process.argv);
 // not using Yargs, because polyfills must be required first
 (function () {
   var lastOption = undefined;
-  process.argv.slice(2).forEach( function (arg) {
-    if (arg.startsWith("-")) {
-      var opt = arg.startsWith("--") ? arg.substr(2) : arg.substr(1,1) ;
+  process.argv.slice(2).forEach( function (arg:string) {
+    if (arg.substr(0,1) === "-") {
+      var opt = arg.substr(0,2) === "--" ? arg.substr(2) : arg.substr(1,1) ;
       switch (opt) {
         case "v":
         case "verbose":
@@ -99,7 +100,7 @@ try {
 } catch (e) {
   console.error("An error occured while loading polyfills ", e.msg);
   v(e.stack);
-  require("process").exit(-1);
+  process.exit(-1);
 }
 
 // now require the main script

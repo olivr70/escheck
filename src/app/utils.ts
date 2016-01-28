@@ -81,12 +81,30 @@ export function joinNotEmpty(items:string[], sep:string) {
 }
 
 // from @megawac here http://stackoverflow.com/questions/25333918/js-deep-map-function
-export function deepMap(obj:_.Dictionary<any>, iterator, context) {
+export function deepMap(obj:_.Dictionary<any>, iterator, thisArgs?) {
     return _.transform(obj, function(result, val, key) {
         result[key] = _.isObject(val) /*&& !_.isDate(val)*/ ?
-                            deepMap(val, iterator, context) :
-                            iterator.call(context, val, key, obj);
+                            deepMap(val, iterator, thisArgs) :
+                            iterator.call(thisArgs, val, key, obj);
     });
+}
+
+/** modifies ioObj by applying **iterator** to each item, and 
+ * recursively if the item is an Array or plain object 
+ * 
+ * @param  ioObj - the collection to modify
+ * @param iterator - the function to apply to each item
+ * @param thisArgs - the thisArg to invoke iterator
+ * @return {_.Dictionnary} its first argument, which may be changed
+*/
+export function deepForEach(ioObj:_.Dictionary<any>, iterator:_.DictionaryIterator<any,any>, thisArgs?) {
+  _.forEach(ioObj, function (value:any, key, collection) {
+    iterator.call(thisArgs, value, key, collection);
+    if (_.isArray(value) || _.isPlainObject(value)) {
+      deepForEach(value, iterator, thisArgs);
+    }
+  });
+  return ioObj;
 }
 
 interface Func1<R,T> {
