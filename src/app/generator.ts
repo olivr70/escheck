@@ -20,8 +20,15 @@ var errAsyncTestNotCompleted = new Error("Asynchronous test has not completed");
 var dataES5 = require("../../node_modules/compat-table/data-es5");
 var dataES6 = require("../../node_modules/compat-table/data-es6");
 var dataES7 = require("../../node_modules/compat-table/data-es7");
-var tests = {es5: dataES5.tests, es6 : dataES6.tests, es7: dataES7.tests };
+var tests = {es5: makeIds(dataES5.tests), es6 : makeIds(dataES6.tests), es7: makeIds(dataES7.tests) };
 
+function makeIds(tests) {
+  return u.deepForEach(tests, function (t) {
+    if (_.isPlainObject(t) && typeof t.name === "string") {
+      t.id = c.makeIdentifier(t.name);
+    }
+  })
+}
 
 /** a class which holds all information on a specific generation task
  */
@@ -102,7 +109,7 @@ function matchAny(filters:Path[], testPath) {
   return false;
 }
 
-export interface Options {
+export interface GenerationOptions {
   includes?:Path[];
   excludes?:Path[];
   verbose?:boolean;
@@ -119,7 +126,7 @@ export interface Options {
  * @param {array} options.includes
  * @param {array} options.excludes
  */
-function accept(options, testPath) {
+function accept(options:GenerationOptions, testPath:Path) {
   // console.log(chalk.cyan(testPath), options.includes, options.excludes);
   var isIncluded = options.includes == null || options.includes.length === 0 || matchAny(options.includes, testPath);
   var isExcluded = options.excludes != null && options.excludes.length !== 0 && matchAny(options.excludes, testPath);
@@ -140,18 +147,18 @@ function accept(options, testPath) {
  * toString()
  * @return {string|undefined} - if extraction fails, returns undefined
  */
-function extractFunctionBody(func) {
-  var commentedBody = /[^]*\/\*([^]*)\*\/\}$/.exec(func);
+function extractFunctionBody(funcSrc:string) {
+  var commentedBody = /[^]*\/\*([^]*)\*\/\}$/.exec(funcSrc);
   if (commentedBody) {
     return commentedBody[1].trim();
   } else {
-    var explicitBody = /^\s*(?:["']use strict["'];)?\s*function\s*([_\w]\w*)?\(([^\)]*)\)\s*\{([^]*)\}\s*$/.exec(func);
+    var explicitBody = /^\s*(?:["']use strict["'];)?\s*function\s*([_\w]\w*)?\(([^\)]*)\)\s*\{([^]*)\}\s*$/.exec(funcSrc);
     if (explicitBody) {
       return explicitBody[3].trim();
     }
   }
   console.log("Unable to extract function body from : ");
-  console.log(func);
+  console.log(funcSrc);
   return undefined;
 }
 
@@ -161,18 +168,22 @@ function adaptToRuntime(body) {
   return body;
 }
 
+/** returns true is the test is asynchronous
+ * In Kangax, this is when the test invokes either asyncTestPassed() or asyncTestFailed()
+ */
 function isAsyncTest(body) {
   return /asyncTest(Passed|Failed)\(\)/.test(body);
 }
 
+/** wraps */
 function wrapAsyncTest(body) {
   if (!isAsyncTest(body)) return body;
-  var str = "var res={}";
-  str += "var timer = setTimeout(function() { if (res.status == undefined) { res.status = false} }, 1000);"
-  str += "var asyncTestPassed = function () { if (res.status == undefined) { clearTimeout(timer); res.status = true} });"
-  str += "var asyncTestFailed = function (err) { if (res.status == undefined) { clearTimeout(timer); res.status = err || new Error('Asynchronous test failed')} });"
+  var str = "var res={pending:true}";
+  str += "var timer = setTimeout(function() { if (res.status == undefined) { res.status = false; res.pending=false; } }, 1000);"
+  str += "var asyncTestPassed = function () { if (res.status == undefined) { clearTimeout(timer); res.status = true; res.pending=false;} });"
+  str += "var asyncTestFailed = function (err) { if (res.status == undefined) { clearTimeout(timer); res.pending=false; res.status = err || new Error('Asynchronous test failed')} });"
   str += "(function() { " + body + "})()";
-  str += "return result;"
+  str += "return res;"
 }
 
 /** tries to minify the function body
@@ -230,7 +241,7 @@ function genTestString(options,test, testPath, ioReport, tab) {
     var bodyMin = options.minify ? tryMinifyBody(testPath, body, ioReport.addMinifyError.bind(ioReport)) : body;
     //str += "// " + body.length + " chars, "+bodyMin.length+ " minified\n"
     //res += "\n" + tab +"\""+jsEscape(last(testPath))+"\":";
-    res += "\n" + tab + c.makeIdentifier(u.last(testPath))+":";
+    res += "\n" + tab + u.last(testPath)+":";
     res += (isAsync ? "a" :"f") +"(\"";
     res += u.jsEscape(bodyMin);
     res += "\")";
@@ -256,7 +267,7 @@ function genTestGroup(groupPath, tests, options, ioReport, tab) {
         var subStr = "";
         var subCount = 0;
         test.subtests.forEach( function (sub, subIdx) {
-          var testPath = groupPath.concat([test.name, sub.name]);
+          var testPath = groupPath.concat([test.id, sub.id]);
           if (accept(options, testPath)) {
             ioReport.included.push(testPath.join("/"));
             //str += "// " + body.length + " chars, "+bodyMin.length+ " minified\n"
@@ -270,14 +281,14 @@ function genTestGroup(groupPath, tests, options, ioReport, tab) {
         if (subStr.length != 0) {
           // at least one subtest, we have to add this test
           if (testCount) str+= ","
-          str += "\n" + testTab + "\""+ u.jsEscape(test.name)+"\": { // test+";
+          str += "\n" + testTab + test.id + ": { // test+";
           //str += "\n" + testTab + makeIdentifier(test.name)+": { // test+";
           str += subStr;
           str += "\n"+ testTab + "}";
           testCount++;
         }
       } else {  // it'a single test
-          var testPath = groupPath.concat([test.name]);
+          var testPath = groupPath.concat([test.id]);
           if (accept(options, testPath)) {
             ioReport.included.push(testPath.join("/"));
             if (testCount) str+= ",";
@@ -289,19 +300,22 @@ function genTestGroup(groupPath, tests, options, ioReport, tab) {
       }
   }); // foreach
   if (str.length != 0) {
-    str = "\n" + tab + c.makeIdentifier(u.last(groupPath)) + ": {\n" + str +"\n"+ tab + "}";
+    str = "\n" + tab + u.last(groupPath) + ": {\n" + str +"\n"+ tab + "}";
   }
   return str;
 }
 
 function genByCategory(groupPath, tests, options, ioReport, tab) {
+  groupPath = groupPath.map(c.makeIdentifier);
   tab = tab || "";
+  // list distinct categories
   var categories = new Object();
   tests.forEach( function(test) { var c = test.category; if (c) categories[c] = c;});
   if (Object.keys(categories).length != 0) {
     var str = "";
+    // generate test category by category
     Object.keys(categories).forEach(function(category) {
-      var categoryPath = groupPath.concat([category]);
+      var categoryPath = groupPath.concat([c.makeIdentifier(category)]);
       var categoryTests = tests.filter(function(item) { return item.category == category});
       var strGroup = genTestGroup(categoryPath, categoryTests, options, ioReport, tab + "  ");
       if (strGroup.length != 0) {
@@ -311,7 +325,7 @@ function genByCategory(groupPath, tests, options, ioReport, tab) {
     });
     if (str.length != 0) {
       str+= "// category " + groupPath + "\n";
-      str = "\n" + tab + c.makeIdentifier(u.last(groupPath)) + ": { // group\n" + str;
+      str = "\n" + tab + u.last(groupPath) + ": { // group\n" + str;
       str +="\n" + tab + "}";
     }
     return str;
@@ -329,7 +343,7 @@ function genByCategory(groupPath, tests, options, ioReport, tab) {
  * @param {boolean} options.minify - if true, will try to minify the test code
  * @return {object} a result object, .src holds the souce code, .report the generation report
  */
-function generateTestsSource(options:Options):GenerationReport {
+function generateTestsSource(options:GenerationOptions):GenerationReport {
   var report = new GenerationReport();
   options = options || {};
   var str = "";
@@ -359,7 +373,7 @@ function generateTestsSource(options:Options):GenerationReport {
   return report;
 }
 
-export function prepareOptions(ioOptions:Options) {
+export function prepareOptions(ioOptions:GenerationOptions) {
   // let's parse includes and excludes to simplify profile edition
   ioOptions.includes = unarr(arr(ioOptions.includes).map(c.strToFilter));
   ioOptions.excludes = unarr(arr(ioOptions.excludes).map(c.strToFilter));
@@ -378,7 +392,7 @@ export function prepareOptions(ioOptions:Options) {
  * @return {Promise} - a Promise to an array of file pathes which will be fulfilled 
  *   when all files have been generated
  */
-export function writeMultiple(profilePathes:string[], cliOpt:Options) {
+export function writeMultiple(profilePathes:string[], cliOpt:GenerationOptions) {
   var results = [];
   results = profilePathes.map( function (profilePath) {
     return u.readFileP(profilePath, 'utf8')
@@ -386,7 +400,7 @@ export function writeMultiple(profilePathes:string[], cliOpt:Options) {
         return {path: fileContent.path, data: JSON.parse(fileContent.data)}; })
 
       .then( function (jsonFile) {
-        var opts:Options = _.defaults({}, jsonFile.data, cliOpt);
+        var opts:GenerationOptions = _.defaults({}, jsonFile.data, cliOpt);
         prepareOptions(opts);
         var target = jsonFile.data.file ? jsonFile.data.file : path.parse(jsonFile.path).name + ".js";
         var src = generateTestsSource(opts).src;
@@ -410,7 +424,7 @@ function dumpGenerationResult(result) {
  * @param {string} filepath - the path of the generated test file
  * @param {object} options
  */
-function generateTests(filename, options:Options):GenerationReport {
+function generateTests(filename, options:GenerationOptions):GenerationReport {
   var report;
   try {
     report = generateTestsSource(options);
@@ -427,7 +441,7 @@ function generateTests(filename, options:Options):GenerationReport {
   }
 }
 
-export function writeChecksJs(options:Options, filename) {
+export function writeChecksJs(options:GenerationOptions, filename) {
   if (!filename) filename = "./compatCheck.js"; 
   var res = generateTests(filename, options);
   dumpGenerationResult(res);

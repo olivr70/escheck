@@ -1,5 +1,13 @@
-/// <reference path="../../typings/tsd.d.ts" />
+/** Runner
+ * 
+ * runs all the tests in an object and generates a report
+ * 
+ * WARNING : it must run in node v0.10 which is ES5
+ */
 
+
+/// <reference path="../../typings/tsd.d.ts" />
+"use strict";
 
 import c = require("./commons")
 
@@ -64,7 +72,6 @@ export function envInfo():c.RuntimeEnv {
   var res = <c.RuntimeEnv>{};
   if (inNodeJs()) {
     var os = require("os");
-    var process = require("process");
     res.node = {
       os: { type: os.type() // in v0.4.4
             , release: os.release() // in v0.4.4
@@ -89,7 +96,8 @@ export function envInfo():c.RuntimeEnv {
 
 /** true if an object key should be ignored in a test collection */
 function shouldIgnore(key:any) {
-  return typeof key !== "string" || key.startsWith("__");
+  // note : cannote use key.startsWith("__")
+  return typeof key !== "string" || (key.length > 1 && key[0] === "_" && key[1] === "_");
 }
 
 
