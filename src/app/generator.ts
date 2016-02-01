@@ -347,9 +347,13 @@ function generateTestsSource(options:GenerationOptions):GenerationReport {
   var report = new GenerationReport();
   options = options || {};
   var str = "";
-  if (options.compilerFunction && options.compilerFunction.polyfills && options.compilerFunction.polyfills.length != 0) {
-    str += "// polyfills:"+options.compilerFunction.polyfills.join(",") + "\n";
+  if (options.compilerFunction && options.compilerFunction.polyfillModules && options.compilerFunction.polyfillModules.length != 0) {
+    str += "// polyfillModules:"+options.compilerFunction.polyfillModules.join(",") + "\n";
   }
+  if (options.compilerFunction && options.compilerFunction.polyfillsToInclude && options.compilerFunction.polyfillsToInclude.length != 0) {
+    str += "// polyfillsToInclude:"+options.compilerFunction.polyfillsToInclude.join(",") + "\n";
+  }        
+
   str += "// ES6 compatibility checks\n";
   str += "// -------------------------\n";
   str += "/* Generated with the following options\n";

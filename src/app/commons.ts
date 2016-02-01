@@ -1,12 +1,14 @@
 
 /// <reference path="../../typings/tsd.d.ts" />
 /// <reference path="./babel-core.d.ts" />
+/// <reference path="./traceur.d.ts" />
 
 import u = require('./utils');
 import chalk = require("chalk");
 import _ = require("lodash");
 
 import babel = require('babel-core');
+import traceur = require('traceur');
 
 
 /** the error message for tests which cannot be run */
@@ -44,32 +46,39 @@ export function makeIdentifier(str:string) {
 }
 
 export interface Compiler {
-  (src:string):string;
-  polyfills?:string[];
+  (src:string, options?:any):string;
+  polyfillModules?:string[];
+  polyfillsToInclude?:string[];
 }
 
 export function selectCompiler(name):Compiler {
   var compileFunc = undefined;
-  var polyfills = [];
+  var polyfillModules = [];
+  var polyfillsToInclude = [];
   switch(name) {
     case "babel" : 
-      compileFunc = function (src) { return babel.transform(src, {presets: ['es2015']} ).code; };
-      polyfills = [ "babel-polyfill" ];
+      compileFunc = function (src, options) { return babel.transform(src, {presets: ['es2015']} ).code; };
+      polyfillModules = [ "babel-polyfill" ];
+      break;
+    case "traceur" : 
+      compileFunc = function (src) { return traceur.compile(src); };
+      polyfillsToInclude = [ "traceur/bin/traceur-runtime.js" ];
       break;
     case "es6-shim" : 
       compileFunc = String;
-      polyfills = [ "es6-shim" ];
+      polyfillModules = [ "es6-shim" ];
       break;
     default: return undefined;
   }
-  var res:Compiler = function (src) {
+  var res:Compiler = function (src, options) {
                 try { 
-                  return compileFunc(src);
+                  return compileFunc(src, options);
                 } catch (e) {
                   return new Error("Unable to compile " + e.msg);
                 }
   };
-  res.polyfills = polyfills;
+  res.polyfillModules = polyfillModules;
+  res.polyfillsToInclude = polyfillsToInclude;
   return res;
 }
 
@@ -107,7 +116,9 @@ export interface RuntimeEnv {
 }
 
 export interface TestReport {
+  finished: boolean;
   env: RuntimeEnv;
+  options: any;
   asyncPending:number;
   results:{};
 }

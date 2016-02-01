@@ -1,0 +1,6 @@
+{
+  "includes":["es6"],
+  "minify":false,
+  "compiler":"traceur",
+  "options": {}
+}

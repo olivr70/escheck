@@ -13,7 +13,7 @@ import c = require("./commons")
 
 import _ = require("lodash");
 
-
+export type TestReport = c.TestReport;
 
 var errAsyncTestNotCompleted = new Error("Asynchronous test has not completed");
 
@@ -106,24 +106,24 @@ function shouldIgnore(key:any) {
  * @param {Function|Object} test - the test itself (a function) or a group of tests
  * @param {}
  */
-function runTestAsync(testPath:string[], test:c.AsyncTestFunction|Object, ioReport:c.TestReport) {
-    if (typeof test === "function") {
-      // it's a final test. Let's run it
-      if (c.isAsyncTest(test.toString())) {
-        ioReport.asyncPending++;
-        _.set(ioReport.results, testPath, errAsyncTestNotCompleted);
-      }
-      try {
-        _.set(ioReport.results, testPath, (<c.AsyncTestFunction>test)(global, makeTestPassedCallback(testPath, ioReport)));
-      } catch (e) {
-        _.set(ioReport.results, testPath, e);
-      }
-    } else {
-      runGroupAsync(testPath, test, ioReport);
+function runTestAsync(testPath: string[], test: c.AsyncTestFunction | Object, ioReport: TestReport) {
+  if (typeof test === "function") {
+    // it's a final test. Let's run it
+    if (c.isAsyncTest(test.toString())) {
+      ioReport.asyncPending++;
+      _.set(ioReport.results, testPath, errAsyncTestNotCompleted);
     }
+    try {
+      _.set(ioReport.results, testPath, (<c.AsyncTestFunction>test)(global, makeTestPassedCallback(testPath, ioReport)));
+    } catch (e) {
+      _.set(ioReport.results, testPath, e);
+    }
+  } else {
+    runGroupAsync(testPath, test, ioReport);
+  }
 }
 
-function runGroupAsync(path:string[], group:{}, ioReport:c.TestReport) {
+function runGroupAsync(path: string[], group: {}, ioReport: TestReport) {
   for (var p in group) {
     if (!shouldIgnore(p)) {
       runTestAsync(path.concat(p), group[p], ioReport);
@@ -136,11 +136,11 @@ function runGroupAsync(path:string[], group:{}, ioReport:c.TestReport) {
  * @param {Object[]} tests - multiple test groups to run
  * @param {Function} cb - the node style callback to call when all tests have finished
 */
-function runAllAsync(tests:{}[], cb) {
+function runAllAsync(tests:{}[], cb:(err:Error, reports:TestReport[]) => void) {
   try {
     // create all empty reports
-    var reports = tests.map( function (t) {
-      return {env:envInfo(), results: {}, asyncPending:0, tests:t, finished:false };
+    var reports:TestReport[] = tests.map( function (t) {
+      return {env:envInfo(), results: {}, options:{}, asyncPending:0, tests:t, finished:false };
     } );
     // lauch all tests
     tests.forEach(function(t, index) { runGroupAsync([], t, reports[index]); });
@@ -152,7 +152,7 @@ function runAllAsync(tests:{}[], cb) {
       var pending = reports.reduce(function(pending, r) { return pending + r.asyncPending }, 0);
       if (pending > 0) {
         if (--loopCount) {
-           console.log("Waiting for completion : ", loopCount, " ", pending);
+           //console.log("Waiting for completion : ", loopCount, " ", pending);
            setTimeout(checkFinish, 100);
            return;
         }
@@ -175,15 +175,13 @@ function runAllAsync(tests:{}[], cb) {
 export function runMultipleFilesAsync(files:string[], cb) {
   try {
     var tests = files.map(function(f){ 
-      console.log("Will load test file ",f);
       return require(f);
     });
-    console.log("All test files loaded. Will start...")
     runAllAsync(tests, cb);
   } catch (e) {
-    console.log("unable to load one of the following files " + files.join(","));
-    console.log(e);
-    console.log(e.stack);
+    console.error("unable to load one of the following files " + files.join(","));
+    console.error(e);
+    console.error(e.stack);
     cb(e);
   }
 }
@@ -195,16 +193,16 @@ export function runMultipleFilesAsync(files:string[], cb) {
  * - env : information about the runtime environment
  * - tests: the tests which were provided
 */
-export function runAllFromFileAsync(file, cb) {
+export function runAllFromFileAsync(file, cb:(err:Error, report?:TestReport) => void ):void {
   try {
     var tests = require(file);
     runAllAsync([tests], function (err, reports) {
       if (err) cb(err); else cb(null, reports[0]);
     });
   } catch (e) {
-    console.log("unable to load file " + file);
-    console.log(e);
-    console.log(e.stack);
+    console.error("unable to load file " + file);
+    console.error(e);
+    console.error(e.stack);
     cb(e);
   }
 }

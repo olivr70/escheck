@@ -15,6 +15,7 @@ import u = require("./utils");
 import c = require("./commons");
 import g = require("./generator");
 import r = require("./runner");
+import rf = require("./runforked");
 import d = require("./report");
 
 
@@ -23,7 +24,7 @@ var argv = yargs
     .help("help")
     .alias("help","h")
     .default({ generate:true, run:true, summary: false, fail: false
-        , errors:false, indent:false, verbose:false, src: false, sync:true, async:true })
+        , errors:false, indent:false, verbose:false, src: false, sync:true, async:true, forked:false })
     .boolean(["generate","run","summary","fail","errors", "indent", "verbose", "code"])
     .describe("generate", "if true, will generate the test file. Use --no-generate to use run an existing file")
       .alias("generate","g")
@@ -42,6 +43,9 @@ var argv = yargs
       .boolean("sync")
     .describe("async", "run asynchronous tests")
       .boolean("async")
+    .describe("forked", "run test in forked node process")
+      .alias("forked","F")
+      .boolean("forked")
     .describe("file", "target file")
       .alias("file", "f")
       .default("file", "./out/escheck.js") 
@@ -79,9 +83,27 @@ function computeAndReportAsync(options, file) {
   })
 }
 
+/** runs the test in a distinct process */
+function runForkedAndReportAsync(options, file) {
+  console.log("-------------------------");
+  console.log("Running tests in a forked process from file '",file,"'");
+  console.log();
+  rf.run(file, options, function (err, report) {
+    if (err) {
+      console.error("An error occured while asychronoulsy running the tests : ", err);
+    } else {
+      d.displayReport(options, report);
+    }
+  })
+}
+
 function go(options,file) { 
   //loadAndRunAll(file);
-  computeAndReportAsync(options,file);
+  if (options.forked) {
+    runForkedAndReportAsync(options, file);
+  } else {
+    computeAndReportAsync(options,file);
+  }
 }
     
 function writeAndGo(options, file) {
